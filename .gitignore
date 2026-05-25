@@ -1,0 +1,18 @@
+# Environment variables (NEVER commit these)
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor folders
+.vscode/
+.idea/
+
+# Dependencies (if you add any later)
+node_modules/
+
+# Vercel
+.vercel
