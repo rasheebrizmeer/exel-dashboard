@@ -154,3 +154,121 @@ function updateKPIs(logs) {
   const clientCount = new Set(logs.map(l => l.client_id)).size;
   document.querySelector('.kpi:nth-child(1) .kpi-meta b').textContent = `${clientCount} clients`;
 }
+
+// js/dashboard.js
+// ============ WORKLOAD METER ============
+function calculateWorkload(logs) {
+  // Only count active (unresolved) logs
+  const active = logs.filter(l => l.status !== 'resolved');
+  if (active.length === 0) return 100;
+  let score = 100;
+  // Critical errors hurt the most
+  const critical = active.filter(l => l.priority === 'Critical').length;
+  score -= critical * 8;
+  // High priority errors
+  const high = active.filter(l => l.priority === 'High').length;
+  score -= high * 4;
+  // Overdue errors hurt badly
+  const now = new Date();
+  const overdue = active.filter(l =>
+    l.due_date && new Date(l.due_date) < now
+  ).length;
+  score -= overdue * 10;
+  // Long-pending tasks
+  const pending = active.filter(l => l.status === 'pending').length;
+  score -= pending * 2;
+  // Clamp between 0 and 100
+  return Math.max(0, Math.min(100, score));
+}
+function getWorkloadStatus(score) {
+  if (score >= 80) return { label: 'Excellent', color: '#2DB84C' };
+  if (score >= 60) return { label: 'Good', color: '#7CC142' };
+  if (score >= 40) return { label: 'Moderate', color: '#FBBF24' };
+  if (score >= 20) return { label: 'Low', color: '#FF9A3C' };
+  return { label: 'Critical', color: '#FF5C5C' };
+}
+function updateWorkloadMeter(logs) {
+  const score = calculateWorkload(logs);
+  const status = getWorkloadStatus(score);
+  // Animate needle from current position to new position
+  const targetAngle = -90 + (score / 100) * 180;
+  animateNeedle(targetAngle);
+  // Update the value text
+  document.getElementById('gaugeValue').innerHTML =
+    `${score}<span style="font-size:24px;color:var(--text-dim)">%</span>`;
+  // Update the status pill
+  const pill = document.getElementById('gaugePill');
+  pill.textContent = status.label;
+  pill.style.background = status.color + '25';
+  pill.style.color = status.color;
+  // Update the mini stats
+  const active = logs.filter(l => l.status !== 'resolved');
+  const pending = active.filter(l => l.status === 'pending').length;
+  const overdue = active.filter(l =>
+    l.due_date && new Date(l.due_date) < new Date()
+  ).length;
+  const onTrack = active.length > 0
+    ? Math.round((active.length - overdue) / active.length * 100)
+    : 100;
+  document.querySelectorAll('.wm-item .val')[0].textContent = pending;
+  document.querySelectorAll('.wm-item .val')[1].textContent = overdue;
+  document.querySelectorAll('.wm-item .val')[2].textContent = onTrack + '%';
+  // Trigger alert if very low (also handled by Edge Function)
+  if (score < 35) {
+    document.getElementById('alertRibbon').style.display = 'flex';
+  } else {
+    document.getElementById('alertRibbon').style.display = 'none';
+  }
+}
+let currentNeedleAngle = -90;
+function animateNeedle(targetAngle) {
+  const needleGroup = document.getElementById('needleGroup');
+  if (!needleGroup) return;
+  const startAngle = currentNeedleAngle;
+  const distance = targetAngle - startAngle;
+  const duration = 800;  // ms
+  const startTime = performance.now();
+  function tick(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease-out cubic for natural feel
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const angle = startAngle + (distance * eased);
+    needleGroup.setAttribute('transform', `rotate(${angle} 100 110)`);
+    if (progress < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      currentNeedleAngle = targetAngle;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+function updateKPIs(logs) {
+  const active = logs.filter(l => l.status !== 'resolved');
+  // Total error logs
+  document.querySelector('.kpi-grid .kpi:nth-child(1) .kpi-value')
+    .textContent = logs.length;
+  // In progress
+  const inProgress = active.filter(l => l.status === 'in_progress').length;
+  document.querySelector('.kpi-grid .kpi:nth-child(2) .kpi-value')
+    .textContent = inProgress;
+  // Critical priority
+  const critical = active.filter(l => l.priority === 'Critical').length;
+  document.querySelector('.kpi-grid .kpi:nth-child(3) .kpi-value')
+    .textContent = critical;
+  // SLA compliance (resolved on time / total resolved)
+  const resolved = logs.filter(l => l.status === 'resolved');
+  const onTime = resolved.filter(l => {
+    if (!l.due_date || !l.resolved_at) return true;
+    return new Date(l.resolved_at) <= new Date(l.due_date);
+  });
+  const sla = resolved.length > 0
+    ? Math.round((onTime.length / resolved.length) * 100)
+    : 100;
+  document.querySelector('.kpi-grid .kpi:nth-child(4) .kpi-value')
+    .textContent = sla + '%';
+  // Count unique clients
+  const clientCount = new Set(logs.map(l => l.client_id)).size;
+  document.querySelector('.kpi:nth-child(1) .kpi-meta b').textContent =
+    `${clientCount} clients`;
+}
