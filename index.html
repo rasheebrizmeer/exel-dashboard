@@ -1,34 +1,229 @@
-<head><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script></head>
-<script src="js/supabase-client.js"></script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EXEL — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body>
 
+<div class="login-page">
+  <div class="login-box">
+
+    <!-- Logo -->
+    <div class="login-logo">
+      <img src="assets/exel-solutions-logo.png" alt="EXEL" onerror="this.style.display='none'">
+      <span>EXEL</span>
+    </div>
+
+    <!-- Tabs: Sign In / Sign Up -->
+    <div class="login-tabs">
+      <button class="login-tab active" onclick="switchTab('login')">Sign In</button>
+      <button class="login-tab" onclick="switchTab('signup')">Create Account</button>
+    </div>
+
+    <!-- ===== LOGIN FORM ===== -->
+    <div id="loginPanel" class="login-form">
+      <div>
+        <div class="field-label">Sign in as</div>
+        <div class="role-row">
+          <button class="role-opt active" data-role="qa_head" onclick="selectRole(this)">QA Head</button>
+          <button class="role-opt" data-role="client" onclick="selectRole(this)">Client</button>
+          <button class="role-opt" data-role="staff" onclick="selectRole(this)">Staff</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="field-label">Email address</div>
+        <input type="email" id="email" placeholder="you@example.com" autocomplete="email">
+      </div>
+
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="field-label" style="margin:0">Password</div>
+          <button class="forgot-link" onclick="showForgotPanel()">Forgot password?</button>
+        </div>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter') doLogin()">
+      </div>
+
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">
+        Sign in to dashboard →
+      </button>
+
+      <div id="loginError" style="color:var(--red);font-size:12px;text-align:center;display:none"></div>
+    </div>
+
+    <!-- ===== SIGN UP FORM ===== -->
+    <div id="signupPanel" class="login-form" style="display:none">
+      <div>
+        <div class="field-label">Account type</div>
+        <div class="role-row">
+          <button class="role-opt" data-role="qa_head" onclick="selectSignupRole(this)">QA Head</button>
+          <button class="role-opt active" data-role="client" onclick="selectSignupRole(this)">Client</button>
+          <button class="role-opt" data-role="staff" onclick="selectSignupRole(this)">Staff</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="field-label">Full name</div>
+        <input type="text" id="signupName" placeholder="Your full name">
+      </div>
+
+      <div>
+        <div class="field-label">Email address</div>
+        <input type="email" id="signupEmail" placeholder="you@example.com">
+      </div>
+
+      <div>
+        <div class="field-label">Password</div>
+        <input type="password" id="signupPassword" placeholder="Min 8 characters">
+      </div>
+
+      <button class="login-btn" id="signupBtn" onclick="doSignup()">
+        Create account →
+      </button>
+
+      <div id="signupError" style="color:var(--red);font-size:12px;text-align:center;display:none"></div>
+    </div>
+
+    <!-- ===== FORGOT PASSWORD ===== -->
+    <div id="forgotPanel" class="login-form" style="display:none">
+      <div style="margin-bottom:4px">
+        <div style="font-weight:700;margin-bottom:4px">Reset your password</div>
+        <div class="sub">We'll send a reset link to your email.</div>
+      </div>
+
+      <div>
+        <div class="field-label">Email address</div>
+        <input type="email" id="forgotEmail" placeholder="you@example.com">
+      </div>
+
+      <button class="login-btn" onclick="doForgotPassword()">Send reset link</button>
+
+      <button class="forgot-link" style="text-align:center;width:100%" onclick="showLoginPanel()">
+        ← Back to sign in
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer"></div>
 
 <script>
-  let selectedRole = 'qa_head';
-  document.querySelectorAll('.role-opt').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.role-opt').forEach(b =>
-        b.classList.remove('active'));
-      btn.classList.add('active');
-      selectedRole = btn.dataset.role;
-    });
-  });
+  let selectedLoginRole = 'qa_head';
+  let selectedSignupRole = 'client';
 
-  document.getElementById('loginBtn').addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
+  function selectRole(btn) {
+    document.querySelectorAll('#loginPanel .role-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedLoginRole = btn.dataset.role;
+  }
+
+  function selectSignupRole(btn) {
+    document.querySelectorAll('#signupPanel .role-opt').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedSignupRole = btn.dataset.role;
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll('.login-tab').forEach((t, i) => {
+      t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'signup' && i === 1));
+    });
+    document.getElementById('loginPanel').style.display = tab === 'login' ? 'flex' : 'none';
+    document.getElementById('signupPanel').style.display = tab === 'signup' ? 'flex' : 'none';
+    document.getElementById('forgotPanel').style.display = 'none';
+  }
+
+  function showForgotPanel() {
+    document.getElementById('loginPanel').style.display = 'none';
+    document.getElementById('forgotPanel').style.display = 'flex';
+    document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+  }
+
+  function showLoginPanel() {
+    document.getElementById('loginPanel').style.display = 'flex';
+    document.getElementById('forgotPanel').style.display = 'none';
+    document.querySelector('.login-tab').classList.add('active');
+  }
+
+  async function doLogin() {
+    const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
+    const err = document.getElementById('loginError');
 
     if (!email || !password) {
-      alert('Please enter both email and password');
+      err.textContent = 'Please enter your email and password.';
+      err.style.display = 'block';
       return;
     }
 
-    const btn = document.getElementById('loginBtn');
+    err.style.display = 'none';
     btn.disabled = true;
-    btn.textContent = 'Signing in...';
+    btn.textContent = 'Signing in…';
 
-    await signIn(email, password, selectedRole);
+    await signIn(email, password, selectedLoginRole);
 
     btn.disabled = false;
     btn.textContent = 'Sign in to dashboard →';
-  });
+  }
+
+  async function doSignup() {
+    const name = document.getElementById('signupName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const btn = document.getElementById('signupBtn');
+    const err = document.getElementById('signupError');
+
+    if (!name || !email || !password) {
+      err.textContent = 'Please fill in all fields.';
+      err.style.display = 'block';
+      return;
+    }
+    if (password.length < 8) {
+      err.textContent = 'Password must be at least 8 characters.';
+      err.style.display = 'block';
+      return;
+    }
+
+    err.style.display = 'none';
+    btn.disabled = true;
+    btn.textContent = 'Creating account…';
+
+    await signUp(email, password, name, selectedSignupRole, null);
+
+    btn.disabled = false;
+    btn.textContent = 'Create account →';
+  }
+
+  async function doForgotPassword() {
+    const email = document.getElementById('forgotEmail').value.trim();
+    if (!email) { toast('alert', 'Error', 'Please enter your email.'); return; }
+    await forgotPassword(email);
+  }
+
+  // Toast helper
+  function toast(type, title, msg) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.innerHTML = `<div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+  }
+
+  // Override showError / showSuccess from auth.js
+  function showError(msg) { toast('alert', 'Error', msg); }
+  function showSuccess(msg) { toast('success', 'Success', msg); }
 </script>
+</body>
+</html>

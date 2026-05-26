@@ -1,27 +1,183 @@
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/supabase-client.js"></script>
-<script>
-  (async function() {
-    const user = await requireAuth();
-    if (!user) return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EXEL — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body>
 
-    window.currentUser = user;
-    window.currentProfile = await getUserProfile(user.id);
+<!-- ============ NAV ============ -->
+<nav class="nav">
+  <div class="nav-logo">
+    <img src="assets/exel-solutions-logo.png" alt="EXEL" onerror="this.style.display='none'">
+    <span>EXEL</span>
+  </div>
+  <div class="nav-sep"></div>
+  <div class="nav-link active">Dashboard</div>
+  <div class="nav-link" id="navClients" onclick="showClientsSection()">Clients</div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user">
+    <div>
+      <div class="user-info">
+        <div class="name" id="userName">Loading…</div>
+        <div class="role-tag" id="userRole"></div>
+      </div>
+    </div>
+    <div class="avatar" id="userAv">—</div>
+    <button class="btn" onclick="signOut()" style="font-size:12px;padding:6px 12px">Sign out</button>
+  </div>
+</nav>
 
-    if (window.currentProfile.role === 'client') {
-      const clientsNav = document.getElementById('navClients');
-      if (clientsNav) clientsNav.style.display = 'none';
-    }
+<!-- ============ ALERT RIBBON ============ -->
+<div style="padding:0 24px">
+  <div id="alertRibbon">
+    ⚠️ <strong>Workload alert:</strong> Team is under high load. Review critical error logs immediately.
+  </div>
+</div>
 
-    document.getElementById('userName').textContent =
-      window.currentProfile.full_name;
-    document.getElementById('userRole').textContent =
-      window.currentProfile.role === 'qa_head' ?
-      'QA Head · Admin' : 'Client · ' + window.currentProfile.company_name;
-    document.getElementById('userAv').textContent =
-      window.currentProfile.avatar_initials;
-  })();
-</script>
+<!-- ============ MAIN PAGE ============ -->
+<div class="page">
+
+  <!-- KPI CARDS -->
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Total Error Logs</div>
+      <div class="kpi-value">—</div>
+      <div class="kpi-meta"><b>0 clients</b> affected</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">In Progress</div>
+      <div class="kpi-value">—</div>
+      <div class="kpi-meta">Active investigations</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Critical Priority</div>
+      <div class="kpi-value">—</div>
+      <div class="kpi-meta">Needs immediate action</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">SLA Compliance</div>
+      <div class="kpi-value">—</div>
+      <div class="kpi-meta">Resolved on time</div>
+    </div>
+  </div>
+
+  <!-- MIDDLE ROW: Workload + Activity -->
+  <div class="grid-2 mb-5">
+
+    <!-- WORKLOAD METER -->
+    <div class="card">
+      <div class="section-h mb-4">
+        <h2>Workload Meter</h2>
+        <span class="sub">Team capacity status</span>
+      </div>
+      <div class="wm-grid">
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" width="100%">
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#FF5C5C"/>
+                <stop offset="40%" style="stop-color:#FBBF24"/>
+                <stop offset="100%" style="stop-color:#2DB84C"/>
+              </linearGradient>
+            </defs>
+            <!-- Background arc -->
+            <path d="M 15 110 A 85 85 0 0 1 185 110" fill="none" stroke="#2A3249" stroke-width="14" stroke-linecap="round"/>
+            <!-- Coloured arc -->
+            <path d="M 15 110 A 85 85 0 0 1 185 110" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+            <!-- Needle -->
+            <g id="needleGroup" transform="rotate(-90 100 110)">
+              <line x1="100" y1="110" x2="100" y2="38" stroke="#E8EAF0" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="100" cy="110" r="5" fill="#E8EAF0"/>
+            </g>
+          </svg>
+          <div class="gauge-center">
+            <div id="gaugeValue">—</div>
+            <div id="gaugePill">Loading</div>
+          </div>
+        </div>
+        <div class="wm-stats">
+          <div class="wm-item">
+            <div class="lbl">Pending</div>
+            <div class="val" style="color:var(--text-dim)">—</div>
+          </div>
+          <div class="wm-item">
+            <div class="lbl">Overdue</div>
+            <div class="val" style="color:var(--red)">—</div>
+          </div>
+          <div class="wm-item">
+            <div class="lbl">On Track</div>
+            <div class="val" style="color:var(--brand-green)">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY FEED -->
+    <div class="card">
+      <div class="section-h mb-4">
+        <h2>Live Activity</h2>
+        <span class="sub">Recent team actions</span>
+      </div>
+      <div id="activityFeed" style="max-height:200px;overflow-y:auto">
+        <div class="tl-item"><div class="tl-time">—</div><div class="tl-text sub">Loading activity…</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ERROR LOGS TABLE -->
+  <div class="card">
+    <div class="section-h">
+      <h2>Error Logs</h2>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="text" id="searchInput" placeholder="Search logs…" style="width:180px" oninput="handleSearch()">
+        <select id="filterStatus" onchange="handleFilter()">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="awaiting_review">Awaiting Review</option>
+          <option value="resolved">Resolved</option>
+        </select>
+        <select id="filterPriority" onchange="handleFilter()">
+          <option value="">All Priority</option>
+          <option value="Critical">Critical</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+        <button class="btn btn-prim" id="submitLogBtn" onclick="openSubmitModal()">+ Submit Error Log</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Client</th>
+            <th>Category</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Due Date</th>
+            <th>Assigned</th>
+          </tr>
+        </thead>
+        <tbody id="errorLogsBody">
+          <tr class="empty-row"><td colspan="7">Loading error logs…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /page -->
 
 <!-- ============ ERROR LOG DETAIL MODAL ============ -->
 <div class="modal-bg" id="logDetailModal">
@@ -35,22 +191,10 @@
     </div>
     <div class="modal-b">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
-        <div>
-          <div class="lbl">Category</div>
-          <div id="ldCat" style="font-weight:600;margin-top:4px"></div>
-        </div>
-        <div>
-          <div class="lbl">Priority</div>
-          <div id="ldPri" style="margin-top:4px"></div>
-        </div>
-        <div>
-          <div class="lbl">Status</div>
-          <div id="ldStatus" style="margin-top:4px"></div>
-        </div>
-        <div>
-          <div class="lbl">Due date</div>
-          <div id="ldDue" style="font-weight:600;margin-top:4px" class="mono"></div>
-        </div>
+        <div><div class="lbl">Category</div><div id="ldCat" style="font-weight:600;margin-top:4px"></div></div>
+        <div><div class="lbl">Priority</div><div id="ldPri" style="margin-top:4px"></div></div>
+        <div><div class="lbl">Status</div><div id="ldStatus" style="margin-top:4px"></div></div>
+        <div><div class="lbl">Due date</div><div id="ldDue" style="font-weight:600;margin-top:4px" class="mono"></div></div>
       </div>
 
       <div style="margin-bottom:16px">
@@ -63,17 +207,15 @@
           <div class="lbl">Progress</div>
           <span id="ldProgressLabel" style="font-family:'JetBrains Mono';font-size:13px;font-weight:600">0%</span>
         </div>
-        <input type="range" id="ldProgress" min="0" max="100" value="0"
-          style="width:100%;accent-color:var(--brand-green)">
+        <input type="range" id="ldProgress" min="0" max="100" value="0" style="width:100%;accent-color:var(--brand-green)"
+          oninput="document.getElementById('ldProgressLabel').textContent=this.value+'%'">
       </div>
 
       <div id="ldResolutionWrap" style="display:none;margin-bottom:16px">
         <div class="lbl">Resolution notes (visible to client)</div>
-        <textarea id="ldResolution" rows="3" style="margin-top:6px"
-          placeholder="Explain what was wrong and how it was fixed..."></textarea>
+        <textarea id="ldResolution" rows="3" style="margin-top:6px" placeholder="Explain what was wrong and how it was fixed…"></textarea>
       </div>
 
-      <!-- Resolved panel (shown to client) -->
       <div id="ldResolvedPanel" style="display:none;background:linear-gradient(135deg,rgba(45,184,76,.1),rgba(124,193,66,.05));border:1px solid rgba(45,184,76,.3);border-radius:10px;padding:14px 16px;margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:32px;height:32px;border-radius:50%;background:var(--brand-green);display:grid;place-items:center;color:white">✓</div>
@@ -86,10 +228,11 @@
       </div>
 
       <div style="margin-top:20px">
-        <div class="lbl" style="margin-bottom:8px">Activity & comments</div>
+        <div class="lbl" style="margin-bottom:8px">Activity &amp; comments</div>
         <div id="ldComments" style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:10px"></div>
         <div style="display:flex;gap:8px">
-          <input type="text" id="ldNewComment" placeholder="Add a comment..." style="flex:1">
+          <input type="text" id="ldNewComment" placeholder="Add a comment…" style="flex:1"
+            onkeydown="if(event.key==='Enter') postComment()">
           <button class="btn btn-prim" onclick="postComment()">Post</button>
         </div>
       </div>
@@ -97,3 +240,227 @@
     <div class="modal-f" id="ldActions"></div>
   </div>
 </div>
+
+<!-- ============ SUBMIT ERROR LOG MODAL ============ -->
+<div class="modal-bg" id="submitModal">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-h">
+      <div><h3>Submit Error Log</h3><div class="sub">Report a new QA issue</div></div>
+      <button onclick="closeSubmitModal()">×</button>
+    </div>
+    <div class="modal-b">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div class="lbl" style="margin-bottom:4px">Error title *</div>
+          <input type="text" id="newTitle" placeholder="Brief description of the error">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="lbl" style="margin-bottom:4px">Client *</div>
+            <select id="newClient">
+              <option value="">Select client…</option>
+            </select>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">Category *</div>
+            <select id="newCategory">
+              <option value="">Select category…</option>
+              <option>Data Entry Error</option>
+              <option>Reconciliation Issue</option>
+              <option>Payroll Discrepancy</option>
+              <option>Tax Filing Error</option>
+              <option>Invoice Mismatch</option>
+              <option>System / Software</option>
+              <option>Compliance Issue</option>
+              <option>Other</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div class="lbl" style="margin-bottom:4px">Priority *</div>
+            <select id="newPriority">
+              <option value="">Select priority…</option>
+              <option>Low</option>
+              <option>Medium</option>
+              <option>High</option>
+              <option>Critical</option>
+            </select>
+          </div>
+          <div>
+            <div class="lbl" style="margin-bottom:4px">Due date</div>
+            <input type="date" id="newDueDate">
+          </div>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:4px">Description *</div>
+          <textarea id="newDesc" rows="4" placeholder="Detailed description of the error, steps to reproduce, and any relevant context…"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-f">
+      <button class="btn" onclick="closeSubmitModal()">Cancel</button>
+      <button class="btn btn-prim" onclick="submitNewLog()">Submit Error Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TOAST ============ -->
+<div id="toastContainer"></div>
+
+<!-- ============ SCRIPTS ============ -->
+<script src="js/error-logs.js"></script>
+<script src="js/dashboard.js"></script>
+
+<script>
+  // ── AUTH GUARD ──
+  (async function() {
+    const user = await requireAuth();
+    if (!user) return;
+
+    window.currentUser = user;
+    window.currentProfile = await getUserProfile(user.id);
+
+    if (!window.currentProfile) {
+      toast('alert', 'Error', 'Profile not found. Please contact your administrator.');
+      return;
+    }
+
+    document.getElementById('userName').textContent = window.currentProfile.full_name || 'User';
+    document.getElementById('userRole').textContent =
+      window.currentProfile.role === 'qa_head' ? 'QA Head · Admin' :
+      window.currentProfile.role === 'client' ? 'Client · ' + (window.currentProfile.company_name || '') :
+      'Staff';
+    document.getElementById('userAv').textContent = window.currentProfile.avatar_initials || '??';
+
+    // Hide clients nav for client role
+    if (window.currentProfile.role === 'client') {
+      document.getElementById('navClients').style.display = 'none';
+      document.getElementById('submitLogBtn').style.display = 'none';
+    }
+
+    // Load dashboard data
+    await refreshDashboard();
+    startActivityFeed();
+    startRealtimeUpdates();
+  })();
+
+  // ── DASHBOARD REFRESH ──
+  async function refreshDashboard() {
+    const logs = await fetchErrorLogs();
+    updateKPIs(logs);
+    updateWorkloadMeter(logs);
+    renderOverviewTable(logs);
+  }
+
+  // ── RENDER TABLE ──
+  function renderOverviewTable(logs) {
+    const tbody = document.getElementById('errorLogsBody');
+    if (!logs || logs.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No error logs found.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = logs.map(log => `
+      <tr onclick="openLogDetail('${log.id}')">
+        <td><div class="truncate" title="${escapeHtml(log.title)}">${escapeHtml(log.title)}</div></td>
+        <td>${escapeHtml(log.client?.name || '—')}</td>
+        <td>${escapeHtml(log.category || '—')}</td>
+        <td><span class="badge badge-${log.priority}">${log.priority}</span></td>
+        <td><span class="badge badge-${log.status}">${formatStatus(log.status)}</span></td>
+        <td class="mono">${log.due_date ? log.due_date.slice(0,10) : '—'}</td>
+        <td>${escapeHtml(log.staff?.full_name || 'Unassigned')}</td>
+      </tr>
+    `).join('');
+  }
+
+  // ── FILTERS ──
+  let searchTimeout;
+  function handleSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(handleFilter, 300);
+  }
+
+  async function handleFilter() {
+    const filters = {
+      status: document.getElementById('filterStatus').value,
+      priority: document.getElementById('filterPriority').value,
+      search: document.getElementById('searchInput').value
+    };
+    const logs = await fetchErrorLogs(filters);
+    renderOverviewTable(logs);
+  }
+
+  // ── SUBMIT MODAL ──
+  async function openSubmitModal() {
+    // Load clients into dropdown
+    const { data: clients } = await supabase.from('clients').select('id, name').order('name');
+    const sel = document.getElementById('newClient');
+    sel.innerHTML = '<option value="">Select client…</option>' +
+      (clients || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+
+    document.getElementById('submitModal').classList.add('open');
+  }
+
+  function closeSubmitModal() {
+    document.getElementById('submitModal').classList.remove('open');
+    // Clear form
+    ['newTitle','newDesc'].forEach(id => document.getElementById(id).value = '');
+    ['newClient','newCategory','newPriority'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('newDueDate').value = '';
+  }
+
+  async function submitNewLog() {
+    const title = document.getElementById('newTitle').value.trim();
+    const clientId = document.getElementById('newClient').value;
+    const category = document.getElementById('newCategory').value;
+    const priority = document.getElementById('newPriority').value;
+    const desc = document.getElementById('newDesc').value.trim();
+    const dueDate = document.getElementById('newDueDate').value;
+
+    if (!title || !clientId || !category || !priority || !desc) {
+      toast('alert', 'Missing fields', 'Please fill in all required fields.');
+      return;
+    }
+
+    const result = await createErrorLog({
+      title, description: desc,
+      client_id: clientId, category, priority,
+      dueDate: dueDate || null
+    });
+
+    if (result) {
+      toast('success', 'Submitted', 'Error log created successfully.');
+      closeSubmitModal();
+      await refreshDashboard();
+    }
+  }
+
+  // ── CLIENTS SECTION ──
+  function showClientsSection() {
+    toast('success', 'Coming soon', 'Clients management view will be added soon.');
+  }
+
+  // ── TOAST ──
+  function toast(type, title, msg) {
+    const c = document.getElementById('toastContainer');
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.innerHTML = `<div><div class="toast-title">${title}</div><div class="toast-msg">${msg}</div></div>`;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 4500);
+  }
+
+  // ── HELPERS ──
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function formatStatus(s) {
+    const map = { pending:'Pending', in_progress:'In Progress', awaiting_review:'Awaiting Review', resolved:'Resolved' };
+    return map[s] || s;
+  }
+</script>
+
+</body>
+</html>
