@@ -21,7 +21,6 @@ async function fetchErrorLogs(filters = {}) {
   const { data, error } = await query;
   if (error) {
     console.error('Fetch error:', error);
-    toast('alert', 'Error', 'Could not load error logs.');
     return [];
   }
   return data;
@@ -108,7 +107,6 @@ async function createErrorLog(errorLogData) {
   }
 
   toast('success', 'Error log submitted', `"${data.title}" added to the queue.`);
-  await refreshDashboard();
   return data;
 }
 
@@ -212,65 +210,7 @@ async function deleteErrorLog(id) {
   return true;
 }
 
-// ============ SUBMIT FORM HANDLER ============
-async function submitErrorLog() {
-  const data = {
-    title: document.getElementById('ntTitle').value,
-    clientName: document.getElementById('ntClient').value,
-    category: document.getElementById('ntCat').value,
-    priority: document.getElementById('ntPri').value,
-    dueDate: document.getElementById('ntDue').value,
-    assignedStaff: document.getElementById('ntAss').value === 'Auto-assign'
-      ? null
-      : document.getElementById('ntAss').value,
-    description: document.getElementById('ntDesc').value
-  };
-
-  if (!data.title) {
-    toast('alert', 'Missing field', 'Please enter an error log title.');
-    return;
-  }
-  if (!data.clientName) {
-    toast('alert', 'Missing field', 'Please enter a client name.');
-    return;
-  }
-
-  const result = await createErrorLog(data);
-  if (result) {
-    closeModal();
-    document.getElementById('ntTitle').value = '';
-    document.getElementById('ntClient').value = '';
-    document.getElementById('ntDesc').value = '';
-  }
-}
-
-document.querySelector('.modal-f .btn-prim').onclick = submitErrorLog;
-
-// ============ RENDER OVERVIEW TABLE ============
-function renderOverviewTable(logs) {
-  const tbody = document.getElementById('overviewTasks');
-  tbody.innerHTML = logs.map(log => `
-    <tr>
-      <td>
-        <div class="task-title">${escapeHtml(log.title)}</div>
-        <div class="task-desc">${escapeHtml(log.description || '')}</div>
-      </td>
-      <td>${escapeHtml(log.client?.name || 'Unknown')}</td>
-      <td>${priorityBadge(log.priority)}</td>
-      <td>${statusBadge(log.status)}</td>
-      <td>
-        <div class="prog-row">
-          <div class="prog">
-            <div class="prog-fill" style="width:${log.progress}%"></div>
-          </div>
-          <span class="pct">${log.progress}%</span>
-        </div>
-      </td>
-      <td class="mono">${formatDate(log.due_date)}</td>
-    </tr>
-  `).join('');
-}
-
+// ============ HELPER FUNCTIONS ============
 function escapeHtml(text) {
   if (!text) return '';
   const div = document.createElement('div');
@@ -278,54 +218,28 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ============ RENDER ALL ERROR LOGS ============
-function renderAllErrorLogs(logs) {
-  const tbody = document.getElementById('allTasksTbody');
-  tbody.innerHTML = logs.map(log => `
-    <tr data-log-id="${log.id}" style="cursor:pointer">
-      <td>
-        <div class="task-title">${escapeHtml(log.title)}</div>
-        <div class="task-desc">${escapeHtml(log.description || '')}</div>
-      </td>
-      <td>${escapeHtml(log.client?.name || 'Unknown')}</td>
-      <td><span class="badge badge-cat">${log.category}</span></td>
-      <td>${log.staff
-        ? `<span class="av-inline">${log.staff.avatar_initials}</span> ${log.staff.full_name}`
-        : '<span style="color:var(--text-mute)">Unassigned</span>'
-      }</td>
-      <td>${priorityBadge(log.priority)}</td>
-      <td>${statusBadge(log.status)}</td>
-      <td>
-        <div class="prog-row">
-          <div class="prog">
-            <div class="prog-fill" style="width:${log.progress}%"></div>
-          </div>
-          <span class="pct">${log.progress}%</span>
-        </div>
-      </td>
-      <td class="mono">${formatDate(log.due_date)}</td>
-    </tr>
-  `).join('');
-
-  tbody.querySelectorAll('tr[data-log-id]').forEach(row => {
-    row.addEventListener('click', () => {
-      openLogDetail(row.getAttribute('data-log-id'));
-    });
-  });
+function formatStatus(status) {
+  const map = {
+    'pending': 'Pending',
+    'in_progress': 'In Progress',
+    'awaiting_review': 'Awaiting Review',
+    'resolved': 'Resolved'
+  };
+  return map[status] || status;
 }
 
-// ============ REFRESH DASHBOARD ============
-async function refreshDashboard() {
-  const logs = await fetchErrorLogs();
-  const activeCount = logs.filter(l => l.status !== 'resolved').length;
-  document.getElementById('taskBadge').textContent = activeCount;
-  renderOverviewTable(logs.slice(0, 6));
-  renderAllErrorLogs(logs);
-  updateKPIs(logs);
-  updateWorkloadMeter(logs);
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  return dateStr.slice(0, 10);
 }
 
-document.addEventListener('DOMContentLoaded', refreshDashboard);
+function priorityBadge(priority) {
+  return `<span class="badge badge-${priority}">${priority || '—'}</span>`;
+}
+
+function statusBadge(status) {
+  return `<span class="badge badge-${status}">${formatStatus(status)}</span>`;
+}
 
 // ============ LOG DETAIL MODAL ============
 let currentLogId = null;
@@ -349,6 +263,9 @@ async function openLogDetail(logId) {
     log.description || 'No description provided.';
   document.getElementById('ldProgress').value = log.progress;
   document.getElementById('ldProgressLabel').textContent = log.progress + '%';
+  document.getElementById('ldResolutionWrap').style.display = 'none';
+  document.getElementById('ldResolution').value = '';
+  document.getElementById('ldResolution').disabled = false;
 
   renderLogComments(log.comments || []);
   renderActionButtons(log);
@@ -372,25 +289,25 @@ async function openLogDetail(logId) {
     document.getElementById('ldResolvedPanel').style.display = 'none';
   }
 
-  document.getElementById('logDetailModal').classList.add('show');
+  document.getElementById('logDetailModal').classList.add('open');
 }
 
 function closeLogDetail() {
-  document.getElementById('logDetailModal').classList.remove('show');
+  document.getElementById('logDetailModal').classList.remove('open');
   currentLogId = null;
 }
 
 function renderLogComments(comments) {
   const wrap = document.getElementById('ldComments');
   if (!comments || comments.length === 0) {
-    wrap.innerHTML = `<div style="text-align:center;color:var(--text-mute);padding:12px;font-size:12px">No comments yet.</div>`;
+    wrap.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:12px;font-size:12px">No comments yet.</div>`;
     return;
   }
   wrap.innerHTML = comments.map(c => `
     <div style="padding:8px 10px;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div style="font-size:12px;font-weight:600">${escapeHtml(c.user?.full_name || 'Unknown')}</div>
-        <div style="font-size:11px;color:var(--text-mute)" class="mono">${timeAgo(c.created_at)}</div>
+        <div style="font-size:11px;color:var(--text-dim)" class="mono">${timeAgo(c.created_at)}</div>
       </div>
       <div style="font-size:13px;color:var(--text-dim)">${escapeHtml(c.body)}</div>
     </div>
@@ -399,7 +316,7 @@ function renderLogComments(comments) {
 
 function renderActionButtons(log) {
   const wrap = document.getElementById('ldActions');
-  const isQA = window.currentProfile.role === 'qa_head';
+  const isQA = window.currentProfile?.role === 'qa_head';
 
   if (!isQA) {
     wrap.innerHTML = `<button class="btn" onclick="closeLogDetail()">Close</button>`;
@@ -431,8 +348,7 @@ function renderActionButtons(log) {
     case 'resolved':
       buttons += `<button class="btn" onclick="changeStatus('${log.id}', 'in_progress')">■ Reopen</button>`;
       if (log.resolution_notes) {
-        const wrap2 = document.getElementById('ldResolutionWrap');
-        wrap2.style.display = 'block';
+        document.getElementById('ldResolutionWrap').style.display = 'block';
         document.getElementById('ldResolution').value = log.resolution_notes;
         document.getElementById('ldResolution').disabled = true;
       }
@@ -476,16 +392,6 @@ async function changeStatus(logId, newStatus) {
   await refreshDashboard();
 }
 
-function formatStatus(status) {
-  const map = {
-    'pending': 'Pending',
-    'in_progress': 'In Progress',
-    'awaiting_review': 'Awaiting Review',
-    'resolved': 'Resolved'
-  };
-  return map[status] || status;
-}
-
 async function saveProgress(logId) {
   const progress = parseInt(document.getElementById('ldProgress').value);
   const { error } = await supabase
@@ -518,7 +424,7 @@ async function markResolved(logId) {
     wrap.style.display = 'block';
     notesField.disabled = false;
     notesField.focus();
-    toast('info', 'Resolution notes required', 'Please describe how the issue was resolved.');
+    toast('alert', 'Resolution notes required', 'Please describe how the issue was resolved.');
     return;
   }
 
@@ -531,7 +437,7 @@ async function markResolved(logId) {
 
   if (!confirm('Mark this error log as Resolved? The client will be notified.')) return;
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('error_logs')
     .update({
       status: 'resolved',
@@ -570,15 +476,13 @@ async function postComment() {
     return;
   }
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from('comments')
     .insert({
       error_log_id: currentLogId,
       user_id: window.currentUser.id,
       body: body
-    })
-    .select('*, user:profiles(full_name, avatar_initials)')
-    .single();
+    });
 
   if (error) {
     toast('alert', 'Error', 'Could not post comment.');
@@ -611,7 +515,6 @@ function startRealtimeUpdates() {
       async (payload) => {
         toast('info', 'New error log', `"${payload.new.title}" was just submitted.`);
         await refreshDashboard();
-        playNotificationSound();
       }
     )
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'error_logs' },
@@ -619,18 +522,13 @@ function startRealtimeUpdates() {
         const oldStatus = payload.old.status;
         const newStatus = payload.new.status;
 
-        if (window.currentProfile.role === 'client') {
+        if (window.currentProfile?.role === 'client') {
           if (oldStatus !== 'resolved' && newStatus === 'resolved') {
             toast('success', 'Error log resolved',
-              `"${payload.new.title}" has been resolved by the QA team. Click to view details.`);
-            playNotificationSound();
+              `"${payload.new.title}" has been resolved by the QA team.`);
           } else if (oldStatus === 'pending' && newStatus === 'in_progress') {
             toast('info', 'Work started', `QA team is now working on "${payload.new.title}".`);
           }
-        }
-
-        if (window.currentProfile.role === 'qa_head') {
-          if (oldStatus !== newStatus) await refreshDashboard();
         }
 
         if (currentLogId === payload.new.id) await openLogDetail(currentLogId);
@@ -650,13 +548,4 @@ function stopRealtimeUpdates() {
   }
 }
 
-function playNotificationSound() {
-  try {
-    const audio = new Audio('data:audio/wav;base64,...');
-    audio.volume = 0.3;
-    audio.play();
-  } catch(e) { /* ignore */ }
-}
-
-document.addEventListener('DOMContentLoaded', () => { startRealtimeUpdates(); });
 window.addEventListener('beforeunload', stopRealtimeUpdates);
