@@ -20,7 +20,7 @@
     <span>EXEL</span>
   </div>
   <div class="nav-sep"></div>
-  <div class="nav-link active">Dashboard</div>
+  <div class="nav-link active" id="navDashboard" onclick="showDashboard()">Dashboard</div>
   <div class="nav-link" id="navClients" onclick="showClientsSection()">Clients</div>
   <div class="nav-spacer"></div>
   <div class="nav-user">
@@ -43,7 +43,7 @@
 </div>
 
 <!-- ============ MAIN PAGE ============ -->
-<div class="page">
+<div class="page" id="dashboardPage">
 
   <!-- KPI CARDS -->
   <div class="kpi-grid">
@@ -178,6 +178,81 @@
   </div>
 
 </div><!-- /page -->
+
+<!-- ============ CLIENTS SECTION ============ -->
+<div id="clientsSection" class="page" style="display:none">
+  <div class="card">
+    <div class="section-h">
+      <div>
+        <h2>Clients</h2>
+        <span class="sub">All registered client accounts</span>
+      </div>
+      <button class="btn btn-prim" onclick="openAddClientModal()">+ Add Client</button>
+    </div>
+    <div style="overflow-x:auto;margin-top:16px">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Industry</th>
+            <th>Contact Email</th>
+            <th>SLA Target</th>
+            <th>Status</th>
+            <th>Open Logs</th>
+          </tr>
+        </thead>
+        <tbody id="clientsTableBody">
+          <tr class="empty-row"><td colspan="6">Loading clients…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ============ ADD CLIENT MODAL ============ -->
+<div class="modal-bg" id="addClientModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-h">
+      <div><h3>Add Client</h3><div class="sub">Register a new client account</div></div>
+      <button onclick="closeAddClientModal()">×</button>
+    </div>
+    <div class="modal-b">
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div>
+          <div class="lbl" style="margin-bottom:4px">Company name *</div>
+          <input type="text" id="acName" placeholder="e.g. Berkshire Holdings">
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:4px">Industry *</div>
+          <select id="acIndustry">
+            <option value="">Select industry…</option>
+            <option>Accounting &amp; Finance</option>
+            <option>Construction</option>
+            <option>Healthcare</option>
+            <option>Legal Services</option>
+            <option>Manufacturing</option>
+            <option>Real Estate</option>
+            <option>Retail</option>
+            <option>Technology</option>
+            <option>Other</option>
+          </select>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:4px">Contact email</div>
+          <input type="email" id="acEmail" placeholder="finance@company.com">
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom:4px">SLA target (%)</div>
+          <input type="number" id="acSla" placeholder="95" min="0" max="100" value="95">
+        </div>
+      </div>
+    </div>
+    <div class="modal-f">
+      <button class="btn" onclick="closeAddClientModal()">Cancel</button>
+      <button class="btn btn-prim" onclick="saveNewClient()">Add Client</button>
+    </div>
+  </div>
+</div>
 
 <!-- ============ ERROR LOG DETAIL MODAL ============ -->
 <div class="modal-bg" id="logDetailModal">
@@ -435,9 +510,102 @@
     }
   }
 
-  // ── CLIENTS SECTION ──
-  function showClientsSection() {
-    toast('success', 'Coming soon', 'Clients management view will be added soon.');
+  // ── SECTION SWITCHING ──
+  function showDashboard() {
+    document.getElementById('navDashboard').classList.add('active');
+    document.getElementById('navClients').classList.remove('active');
+    document.getElementById('dashboardPage').style.display = 'block';
+    document.getElementById('clientsSection').style.display = 'none';
+  }
+
+  async function showClientsSection() {
+    document.getElementById('navDashboard').classList.remove('active');
+    document.getElementById('navClients').classList.add('active');
+    document.getElementById('dashboardPage').style.display = 'none';
+    document.getElementById('clientsSection').style.display = 'block';
+    await loadClients();
+  }
+
+  async function loadClients() {
+    const tbody = document.getElementById('clientsTableBody');
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Loading…</td></tr>';
+
+    const { data: clients, error } = await supabase
+      .from('clients')
+      .select('*')
+      .order('name');
+
+    if (error || !clients) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Could not load clients.</td></tr>';
+      return;
+    }
+    if (clients.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="6">No clients yet. Click "+ Add Client" to get started.</td></tr>';
+      return;
+    }
+
+    // Also get open log counts per client
+    const { data: logCounts } = await supabase
+      .from('error_logs')
+      .select('client_id')
+      .neq('status', 'resolved');
+
+    const countMap = {};
+    (logCounts || []).forEach(l => {
+      countMap[l.client_id] = (countMap[l.client_id] || 0) + 1;
+    });
+
+    tbody.innerHTML = clients.map(c => `
+      <tr style="cursor:default">
+        <td><strong>${escapeHtml(c.name)}</strong></td>
+        <td>${escapeHtml(c.industry || '—')}</td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:12px">${escapeHtml(c.contact_email || '—')}</td>
+        <td><span class="mono">${c.sla_target != null ? c.sla_target + '%' : '—'}</span></td>
+        <td><span class="badge ${c.active ? 'badge-resolved' : 'badge-pending'}">${c.active ? 'Active' : 'Inactive'}</span></td>
+        <td><span style="color:var(--text-dim);font-weight:600">${countMap[c.id] || 0}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  function openAddClientModal() {
+    document.getElementById('addClientModal').classList.add('open');
+  }
+
+  function closeAddClientModal() {
+    document.getElementById('addClientModal').classList.remove('open');
+    document.getElementById('acName').value = '';
+    document.getElementById('acEmail').value = '';
+    document.getElementById('acIndustry').value = '';
+    document.getElementById('acSla').value = '95';
+  }
+
+  async function saveNewClient() {
+    const name = document.getElementById('acName').value.trim();
+    const industry = document.getElementById('acIndustry').value;
+    const email = document.getElementById('acEmail').value.trim();
+    const sla = parseInt(document.getElementById('acSla').value) || 95;
+
+    if (!name || !industry) {
+      toast('alert', 'Missing fields', 'Company name and industry are required.');
+      return;
+    }
+
+    const { error } = await supabase.from('clients').insert({
+      name,
+      industry,
+      contact_email: email || null,
+      sla_target: sla,
+      active: true
+    });
+
+    if (error) {
+      toast('alert', 'Error', 'Could not add client: ' + error.message);
+      return;
+    }
+
+    toast('success', 'Client added', `${name} has been registered.`);
+    closeAddClientModal();
+    await loadClients();
   }
 
   // ── TOAST ──
