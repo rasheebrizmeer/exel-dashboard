@@ -171,10 +171,56 @@
     btn.disabled = true;
     btn.textContent = 'Signing in…';
 
-    await signIn(email, password, selectedLoginRole);
+    try {
+      // Step 1: Auth
+      err.textContent = 'Step 1: Connecting to auth…';
+      err.style.display = 'block';
+      err.style.color = '#888';
 
-    btn.disabled = false;
-    btn.textContent = 'Sign in to dashboard →';
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        err.textContent = 'Auth error: ' + error.message;
+        err.style.color = 'var(--red)';
+        btn.disabled = false;
+        btn.textContent = 'Sign in to dashboard →';
+        return;
+      }
+
+      // Step 2: Profile
+      err.textContent = 'Step 2: Loading your profile…';
+      err.style.color = '#888';
+
+      const profile = await getUserProfile(data.user.id);
+      if (!profile) {
+        err.textContent = 'Profile not found. Contact your administrator.';
+        err.style.color = 'var(--red)';
+        await supabase.auth.signOut();
+        btn.disabled = false;
+        btn.textContent = 'Sign in to dashboard →';
+        return;
+      }
+
+      if (profile.role !== selectedLoginRole) {
+        err.textContent = `This account is a "${profile.role}" account. Please select the correct role above.`;
+        err.style.color = 'var(--red)';
+        await supabase.auth.signOut();
+        btn.disabled = false;
+        btn.textContent = 'Sign in to dashboard →';
+        return;
+      }
+
+      // Step 3: Redirect
+      err.textContent = 'Step 3: Redirecting to dashboard…';
+      err.style.color = '#2DB84C';
+      window.location.href = 'dashboard.html';
+
+    } catch (e) {
+      err.textContent = 'Unexpected error: ' + e.message;
+      err.style.color = 'var(--red)';
+      btn.disabled = false;
+      btn.textContent = 'Sign in to dashboard →';
+    }
   }
 
   async function doSignup() {
