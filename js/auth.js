@@ -43,7 +43,11 @@ async function signUp(email, password, fullName, role, clientId) {
   });
 
   if (error) {
-    showError('Sign up failed: ' + error.message);
+    if (error.message?.includes('disabled') || error.code === 'email_provider_disabled') {
+      showError('Account creation is disabled. Please contact your QA Head to have your account set up.');
+    } else {
+      showError('Sign up failed: ' + error.message);
+    }
     return null;
   }
 
