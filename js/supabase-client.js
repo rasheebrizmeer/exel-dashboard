@@ -1,7 +1,15 @@
 const SUPABASE_URL = 'https://tbizdahnximtzkndzfgd.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRiaXpkYWhueGltdHprbmR6ZmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk2NDQ5MzQsImV4cCI6MjA5NTIyMDkzNH0.8hWV_tVM2Ah1A25Mn-lt4kkr6cuBVsM-lfHaiAqbZFQ';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// The CDN sets window.supabase = the library (has createClient but no .auth).
+// We replace it with the actual client instance so all code can use
+// supabase.auth, supabase.from(), etc. without naming conflicts.
+const _supabaseLib = window.supabase;
+window.supabase = _supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Convenience alias — all our JS files reference `supabase` as a plain variable.
+// Since window.supabase is now the client, bare `supabase` resolves to it.
+var supabase = window.supabase;
 
 async function requireAuth() {
   const { data: { session } } = await supabase.auth.getSession();
