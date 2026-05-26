@@ -1,0 +1,99 @@
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+  (async function() {
+    const user = await requireAuth();
+    if (!user) return;
+
+    window.currentUser = user;
+    window.currentProfile = await getUserProfile(user.id);
+
+    if (window.currentProfile.role === 'client') {
+      const clientsNav = document.getElementById('navClients');
+      if (clientsNav) clientsNav.style.display = 'none';
+    }
+
+    document.getElementById('userName').textContent =
+      window.currentProfile.full_name;
+    document.getElementById('userRole').textContent =
+      window.currentProfile.role === 'qa_head' ?
+      'QA Head · Admin' : 'Client · ' + window.currentProfile.company_name;
+    document.getElementById('userAv').textContent =
+      window.currentProfile.avatar_initials;
+  })();
+</script>
+
+<!-- ============ ERROR LOG DETAIL MODAL ============ -->
+<div class="modal-bg" id="logDetailModal">
+  <div class="modal" style="max-width:720px">
+    <div class="modal-h">
+      <div>
+        <h3 id="ldTitle">Error log details</h3>
+        <div class="sub" id="ldClient">Client name</div>
+      </div>
+      <button onclick="closeLogDetail()">×</button>
+    </div>
+    <div class="modal-b">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border)">
+        <div>
+          <div class="lbl">Category</div>
+          <div id="ldCat" style="font-weight:600;margin-top:4px"></div>
+        </div>
+        <div>
+          <div class="lbl">Priority</div>
+          <div id="ldPri" style="margin-top:4px"></div>
+        </div>
+        <div>
+          <div class="lbl">Status</div>
+          <div id="ldStatus" style="margin-top:4px"></div>
+        </div>
+        <div>
+          <div class="lbl">Due date</div>
+          <div id="ldDue" style="font-weight:600;margin-top:4px" class="mono"></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div class="lbl">Description</div>
+        <div id="ldDesc" style="margin-top:6px;padding:12px;background:var(--panel-2);border-radius:8px;font-size:13px;line-height:1.6"></div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div class="lbl">Progress</div>
+          <span id="ldProgressLabel" style="font-family:'JetBrains Mono';font-size:13px;font-weight:600">0%</span>
+        </div>
+        <input type="range" id="ldProgress" min="0" max="100" value="0"
+          style="width:100%;accent-color:var(--brand-green)">
+      </div>
+
+      <div id="ldResolutionWrap" style="display:none;margin-bottom:16px">
+        <div class="lbl">Resolution notes (visible to client)</div>
+        <textarea id="ldResolution" rows="3" style="margin-top:6px"
+          placeholder="Explain what was wrong and how it was fixed..."></textarea>
+      </div>
+
+      <!-- Resolved panel (shown to client) -->
+      <div id="ldResolvedPanel" style="display:none;background:linear-gradient(135deg,rgba(45,184,76,.1),rgba(124,193,66,.05));border:1px solid rgba(45,184,76,.3);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--brand-green);display:grid;place-items:center;color:white">✓</div>
+          <div>
+            <div style="font-weight:600">Resolved</div>
+            <div style="font-size:11px;color:var(--text-dim)" id="ldResolvedAt"></div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text);line-height:1.5" id="ldResolvedNotes"></div>
+      </div>
+
+      <div style="margin-top:20px">
+        <div class="lbl" style="margin-bottom:8px">Activity & comments</div>
+        <div id="ldComments" style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:10px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="ldNewComment" placeholder="Add a comment..." style="flex:1">
+          <button class="btn btn-prim" onclick="postComment()">Post</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-f" id="ldActions"></div>
+  </div>
+</div>
