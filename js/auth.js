@@ -47,6 +47,13 @@ async function signUp(email, password, fullName, role, clientId) {
     return null;
   }
 
+  // If email confirmation is required, session will be null
+  if (!data.session) {
+    showSuccess('Account created! Check your email and click the confirmation link, then sign in.');
+    return data.user;
+  }
+
+  // Email confirmation is OFF — session is active, go straight to dashboard
   if (role === 'client' && clientId && data.user) {
     await supabase
       .from('profiles')
@@ -54,7 +61,7 @@ async function signUp(email, password, fullName, role, clientId) {
       .eq('id', data.user.id);
   }
 
-  showSuccess('Account created. Redirecting to dashboard...');
+  showSuccess('Account created! Redirecting to dashboard...');
   setTimeout(() => window.location.href = 'dashboard.html', 1500);
   return data.user;
 }
