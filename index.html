@@ -224,6 +224,27 @@
   // Override showError / showSuccess from auth.js
   function showError(msg) { toast('alert', 'Error', msg); }
   function showSuccess(msg) { toast('success', 'Success', msg); }
+
+  // Fix bfcache: when user presses Back from dashboard, reset the button
+  // and redirect if they still have a valid session
+  window.addEventListener('pageshow', function(e) {
+    if (e.persisted) {
+      const btn = document.getElementById('loginBtn');
+      if (btn) { btn.disabled = false; btn.textContent = 'Sign in to dashboard →'; }
+      checkExistingSession();
+    }
+  });
+
+  // Also add a safety timeout: if button stays "Signing in..." for >12s, reset it
+  document.getElementById('loginBtn').addEventListener('click', function() {
+    setTimeout(() => {
+      const btn = document.getElementById('loginBtn');
+      if (btn.textContent === 'Signing in…') {
+        btn.disabled = false;
+        btn.textContent = 'Sign in to dashboard →';
+      }
+    }, 12000);
+  });
 </script>
 </body>
 </html>
